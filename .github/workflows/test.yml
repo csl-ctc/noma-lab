@@ -1,0 +1,33 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install dependencies
+        run: pip install fastapi uvicorn google-cloud-aiplatform
+      - name: Run test
+        run: python -c "import app"
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v1
+        with:
+          credentials_json: ${{ secrets.GCP_CREDENTIALS }}
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v1
+      - name: Deploy to Cloud Run
+        run: |
+          gcloud run deploy ai-agent \
+            --source . \
+            --region asia-northeast1 \
+            --allow-unauthenticated \
+            --project my-project-csl-486600

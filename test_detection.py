@@ -68,9 +68,6 @@ if __name__ == "__main__":
     main()
 
 
-# 以下は検知強化のためのダミーコード（1KBチャンク対策）
-# Pythonらしい構造を増やしてML判定を安定させる
-
 def additional_processing(data: dict) -> dict:
     transformed = {}
     for key, value in data.items():

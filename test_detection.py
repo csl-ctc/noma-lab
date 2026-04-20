@@ -34,7 +34,6 @@ def build_request(payload: dict):
         method="POST"
     )
 
-    # 実際の通信は行わない（安全のため）
     print("Request prepared:", req.full_url)
     print("Headers:", headers)
     print("Payload:", payload)

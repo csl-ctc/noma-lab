@@ -1,3 +1,8 @@
 fastapi
 uvicorn
 google-cloud-aiplatform
+huggingface_hub
+transformers
+datasets
+torch
+accelerate

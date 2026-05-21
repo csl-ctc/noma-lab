@@ -1,12 +1,9 @@
 import os
 from pathlib import Path
 
-# Hugging Face系ライブラリは、環境変数設定後にimportされる必要があります。
-# GitHub Actions側で HF_ENDPOINT を設定してからこのスクリプトを実行します。
 print("HF_ENDPOINT is set:", bool(os.environ.get("HF_ENDPOINT")))
 print("HF_HUB_ETAG_TIMEOUT:", os.environ.get("HF_HUB_ETAG_TIMEOUT"))
 
-# Xet経由のダウンロードを避け、通常のhuggingface_hub経路で確認しやすくする
 os.environ["HF_HUB_DISABLE_XET"] = "1"
 
 from datasets import load_dataset

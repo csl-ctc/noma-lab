@@ -1,5 +1,8 @@
-trained_model/
-hf_cache*/
-.cache/
+
+.git
+.git/
+.github/
 __pycache__/
 *.pyc
+.cache/
+hf_cache*/

@@ -6,10 +6,6 @@ import os
 from pathlib import Path
 from functools import lru_cache
 
-import torch
-from transformers import AutoTokenizer, AutoModelForSequenceClassification
-
-
 app = FastAPI()
 
 # ===== Vertex AI / Gemini 設定 =====
@@ -23,7 +19,6 @@ URL = (
 )
 
 # ===== 学習済み Hugging Face モデル設定 =====
-# GitHub Actions 内で生成した trained_model/ を Cloud Run に含める前提
 MODEL_DIR = os.environ.get("MODEL_DIR", "trained_model")
 
 LABEL_MAP = {
@@ -50,8 +45,12 @@ def get_access_token() -> str:
 def load_classifier():
     """
     trained_model/ から tokenizer と model を読み込む。
-    lru_cache により、初回だけ読み込み、以降はメモリ上のモデルを再利用する。
+    torch / transformers はここで初めて import する。
+    そのため python -c "import app" だけでは torch が不要になる。
     """
+    import torch
+    from transformers import AutoTokenizer, AutoModelForSequenceClassification
+
     model_path = Path(MODEL_DIR)
 
     if not model_path.exists():
@@ -72,18 +71,26 @@ def load_classifier():
     )
 
     model.eval()
-    return tokenizer, model
+
+    return tokenizer, model, torch
 
 
 def classify_text(text: str) -> dict:
     """
-    学習済み DistilBERT 分類モデルで入力テキストを分類する。
-    今回のモデルは IMDb データセットで学習した positive / negative 分類モデル。
+    学習済みモデルで入力文を positive / negative に分類する。
     """
     try:
-        tokenizer, model = load_classifier()
+        tokenizer, model, torch = load_classifier()
     except FileNotFoundError as e:
         raise HTTPException(status_code=500, detail=str(e))
+    except ModuleNotFoundError as e:
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                f"Required ML library is missing: {e}. "
+                "Make sure torch and transformers are installed in the runtime."
+            ),
+        )
 
     inputs = tokenizer(
         text,
@@ -133,7 +140,8 @@ def call_gemini(message: str) -> str:
     with urllib.request.urlopen(req, timeout=30) as resp:
         result = json.loads(resp.read().decode("utf-8"))
 
-    return result["candidates"][0]["content"]["parts"][0]["text"]
+    text = result["candidates"][0]["content"]["parts"][0]["text"]
+    return text
 
 
 @app.get("/")
@@ -158,9 +166,6 @@ async def model_status():
 
 @app.post("/classify")
 async def classify(body: ChatRequest):
-    """
-    学習済みモデル単体の動作確認用エンドポイント。
-    """
     if not body.message:
         raise HTTPException(status_code=400, detail="message is required")
 
@@ -174,9 +179,6 @@ async def classify(body: ChatRequest):
 
 @app.post("/chat")
 async def chat(body: ChatRequest):
-    """
-    既存の Gemini チャットに、学習済み分類モデルの結果を組み込む。
-    """
     if not body.message:
         raise HTTPException(status_code=400, detail="message is required")
 

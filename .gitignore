@@ -1,0 +1,5 @@
+trained_model/
+hf_cache*/
+.cache/
+__pycache__/
+*.pyc

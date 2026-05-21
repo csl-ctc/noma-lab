@@ -1,0 +1,71 @@
+name: HF Model Agent Lifecycle
+
+on:
+  workflow_dispatch:
+
+jobs:
+  train-and-deploy:
+    runs-on: ubuntu-latest
+
+    env:
+      HF_ENDPOINT: ${{ secrets.NOMA_HF_ENDPOINT }}
+      HF_HUB_ETAG_TIMEOUT: "3600"
+      HF_HUB_DISABLE_XET: "1"
+      HF_HUB_DISABLE_SYMLINKS_WARNING: "1"
+      MODEL_DIR: "trained_model"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Validate HF endpoint
+        run: |
+          if [ -z "$HF_ENDPOINT" ]; then
+            echo "HF_ENDPOINT is not set"
+            exit 1
+          fi
+          echo "HF_ENDPOINT is configured"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Train Hugging Face model via Noma proxy
+        run: |
+          python security_tests/hf_proxy_train.py
+
+      - name: Confirm trained model exists
+        run: |
+          echo "Listing trained_model directory"
+          ls -la trained_model
+
+      - name: Confirm source files before deploy
+        run: |
+          echo "Repository root:"
+          ls -la
+          echo "trained_model files:"
+          find trained_model -maxdepth 2 -type f | head -50
+
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v1
+        with:
+          credentials_json: ${{ secrets.GCP_CREDENTIALS }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v1
+
+      - name: Deploy agent with trained model to Cloud Run
+        run: |
+          gcloud run deploy ai-agent \
+            --source . \
+            --region asia-northeast1 \
+            --allow-unauthenticated \
+            --project my-project-csl-486600 \
+            --memory 2Gi \
+            --set-env-vars MODEL_DIR=trained_model
